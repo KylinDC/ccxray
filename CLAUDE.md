@@ -9,7 +9,7 @@ A transparent HTTP proxy that sits between Claude Code and the Anthropic API. It
 ## Commands
 
 ```bash
-npx ccxray claude                                # One command: proxy + Claude Code
+npx @kylindc/ccxray claude                       # One command: proxy + Claude Code
 ccxray claude                                    # Multiple terminals auto-share one hub
 ccxray --port 8080 claude                        # Custom port (opts out of hub, independent server)
 ccxray status                                    # Show hub info and connected clients

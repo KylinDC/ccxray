@@ -21,7 +21,7 @@ ccxray 讓它變成透明的。
 ## 快速開始
 
 ```bash
-npx ccxray claude
+npx @kylindc/ccxray claude
 ```
 
 就這樣。代理啟動、Claude Code 透過代理連線、儀表板自動在瀏覽器中開啟。在多個終端機執行時會自動共用同一個 dashboard。
