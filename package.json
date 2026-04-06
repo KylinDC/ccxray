@@ -1,6 +1,6 @@
 {
   "name": "ccxray",
-  "version": "1.1.1",
+  "version": "1.1.1-bedrock-support",
   "description": "X-ray vision for AI agent sessions — a transparent HTTP proxy and dashboard for Claude Code",
   "main": "server/index.js",
   "bin": {
@@ -21,15 +21,15 @@
     "debugging",
     "observability"
   ],
-  "author": "Justin Lee",
+  "author": "KylinDC",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/lis186/ccxray.git"
+    "url": "git+https://github.com/kylindc/ccxray.git"
   },
-  "homepage": "https://github.com/lis186/ccxray",
+  "homepage": "https://github.com/kylindc/ccxray",
   "bugs": {
-    "url": "https://github.com/lis186/ccxray/issues"
+    "url": "https://github.com/kylindc/ccxray/issues"
   },
   "type": "commonjs",
   "engines": {
