@@ -160,11 +160,12 @@ aws_secret_access_key = STAGING_SECRET
   it('12.5 returns null when no credentials and IMDS times out', async () => {
     // Point credentials file to non-existent path so file lookup fails
     process.env.AWS_SHARED_CREDENTIALS_FILE = '/nonexistent/path/credentials';
-    // IMDS will time out on a port that refuses connections (port 1 is privileged)
-    // The resolver will try 169.254.169.254 which won't respond in test environments
+    // Redirect IMDS to localhost port 1 — connection refused instantly, no reliance
+    // on 169.254.169.254 which may respond on cloud CI runners (Azure/GCP link-local)
+    process.env.CCXRAY_IMDS_HOST = '127.0.0.1';
     const creds = await resolveCredentials();
-    // In test env (no EC2 metadata available), should return null
     assert.equal(creds, null);
     delete process.env.AWS_SHARED_CREDENTIALS_FILE;
+    delete process.env.CCXRAY_IMDS_HOST;
   });
 });
