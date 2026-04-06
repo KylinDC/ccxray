@@ -57,7 +57,7 @@ async function fetchPricing() {
           const fetched = {};
           const fetchedCtx = {};
           for (const [key, val] of Object.entries(data)) {
-            if (!key.startsWith('claude-')) continue;
+            if (!key.startsWith('claude-') && !key.startsWith('bedrock/anthropic.claude-')) continue;
             if (val.input_cost_per_token) {
               fetched[key] = {
                 input: (val.input_cost_per_token || 0) * 1_000_000,

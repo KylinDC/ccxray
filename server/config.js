@@ -14,6 +14,84 @@ const LOGS_DIR = path.join(os.homedir(), '.ccxray', 'logs');
 const LEGACY_LOGS_DIR = path.join(__dirname, '..', 'logs');
 const RESTORE_DAYS = parseInt(process.env.RESTORE_DAYS || '3', 10);
 
+// ── Bedrock config ───────────────────────────────────────────────────
+const BEDROCK_REGION = process.env.BEDROCK_REGION || '';
+const BEDROCK_PROFILE_ARN = process.env.BEDROCK_PROFILE_ARN || '';
+const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID || '';
+const BEDROCK_BEARER_TOKEN = process.env.BEDROCK_BEARER_TOKEN || '';
+const _CLAUDE_CODE_USE_BEDROCK = process.env.CLAUDE_CODE_USE_BEDROCK || '';
+
+// IS_BEDROCK_MODE is true when any activation trigger is set.
+// index.js also sets this to true when --bedrock CLI flag is found.
+let IS_BEDROCK_MODE = !!(BEDROCK_REGION || _CLAUDE_CODE_USE_BEDROCK === '1' || _CLAUDE_CODE_USE_BEDROCK === 'true');
+
+// Region resolution: BEDROCK_REGION → AWS_REGION → AWS_DEFAULT_REGION → us-east-1
+const BEDROCK_RESOLVED_REGION = BEDROCK_REGION
+  || process.env.AWS_REGION
+  || process.env.AWS_DEFAULT_REGION
+  || 'us-east-1';
+
+// Bedrock activation source label (for startup log)
+const BEDROCK_ACTIVATION_SOURCE = BEDROCK_REGION ? 'BEDROCK_REGION'
+  : (_CLAUDE_CODE_USE_BEDROCK === '1' || _CLAUDE_CODE_USE_BEDROCK === 'true') ? 'CLAUDE_CODE_USE_BEDROCK'
+  : '--bedrock flag';
+
+// Optional: override Bedrock endpoint host/port for testing
+const BEDROCK_TEST_HOST = process.env.BEDROCK_TEST_HOST || '';
+const BEDROCK_TEST_PORT = parseInt(process.env.BEDROCK_TEST_PORT || '443', 10);
+const BEDROCK_TEST_PROTOCOL = process.env.BEDROCK_TEST_PROTOCOL || 'https';
+
+// Resolved credentials (set by index.js at startup in Bedrock mode)
+let BEDROCK_CREDENTIALS = null;
+
+// ── Anthropic → Bedrock model ID mapping table ───────────────────────
+// Keys are Anthropic model ID prefixes, longest match wins.
+const BEDROCK_MODEL_MAP = {
+  // Claude 4 family
+  'claude-opus-4-20250514':     'anthropic.claude-opus-4-20250514-v1:0',
+  'claude-sonnet-4-20250514':   'anthropic.claude-sonnet-4-20250514-v1:0',
+  'claude-haiku-4-20250514':    'anthropic.claude-haiku-4-20250514-v1:0',
+  'claude-opus-4':              'anthropic.claude-opus-4-20250514-v1:0',
+  'claude-sonnet-4':            'anthropic.claude-sonnet-4-20250514-v1:0',
+  'claude-haiku-4':             'anthropic.claude-haiku-4-20250514-v1:0',
+  // Claude 3.7
+  'claude-3-7-sonnet-20250219': 'anthropic.claude-3-7-sonnet-20250219-v1:0',
+  'claude-3-7-sonnet':          'anthropic.claude-3-7-sonnet-20250219-v1:0',
+  // Claude 3.5
+  'claude-3-5-sonnet-20241022': 'anthropic.claude-3-5-sonnet-20241022-v2:0',
+  'claude-3-5-sonnet-20240620': 'anthropic.claude-3-5-sonnet-20240620-v1:0',
+  'claude-3-5-sonnet':          'anthropic.claude-3-5-sonnet-20241022-v2:0',
+  'claude-3-5-haiku-20241022':  'anthropic.claude-3-5-haiku-20241022-v1:0',
+  'claude-3-5-haiku':           'anthropic.claude-3-5-haiku-20241022-v1:0',
+  // Claude 3
+  'claude-3-opus-20240229':     'anthropic.claude-3-opus-20240229-v1:0',
+  'claude-3-opus':              'anthropic.claude-3-opus-20240229-v1:0',
+  'claude-3-sonnet-20240229':   'anthropic.claude-3-sonnet-20240229-v1:0',
+  'claude-3-sonnet':            'anthropic.claude-3-sonnet-20240229-v1:0',
+  'claude-3-haiku-20240307':    'anthropic.claude-3-haiku-20240307-v1:0',
+  'claude-3-haiku':             'anthropic.claude-3-haiku-20240307-v1:0',
+};
+
+function resolveBedrockModelId(anthropicModelId) {
+  if (anthropicModelId) {
+    if (BEDROCK_MODEL_MAP[anthropicModelId]) return BEDROCK_MODEL_MAP[anthropicModelId];
+    const keys = Object.keys(BEDROCK_MODEL_MAP).sort((a, b) => b.length - a.length);
+    for (const key of keys) {
+      if (anthropicModelId.startsWith(key)) return BEDROCK_MODEL_MAP[key];
+    }
+  }
+  if (BEDROCK_MODEL_ID) return BEDROCK_MODEL_ID;
+  throw new Error(`No Bedrock model ID for '${anthropicModelId}'. Set BEDROCK_MODEL_ID to override.`);
+}
+
+function buildBedrockUrl(region, modelId, profileArn) {
+  const segment = profileArn ? encodeURIComponent(profileArn) : encodeURIComponent(modelId);
+  if (BEDROCK_TEST_HOST) {
+    return `${BEDROCK_TEST_PROTOCOL}://${BEDROCK_TEST_HOST}:${BEDROCK_TEST_PORT}/model/${segment}/invoke-with-response-stream`;
+  }
+  return `https://bedrock-runtime.${region}.amazonaws.com/model/${segment}/invoke-with-response-stream`;
+}
+
 // Storage adapter (local by default, S3 via STORAGE_BACKEND=s3)
 const storage = createStorage();
 
@@ -92,4 +170,21 @@ module.exports = {
   MODEL_CONTEXT_FALLBACK,
   DEFAULT_CONTEXT,
   getMaxContext,
+  // Bedrock
+  get IS_BEDROCK_MODE() { return IS_BEDROCK_MODE; },
+  set IS_BEDROCK_MODE(v) { IS_BEDROCK_MODE = v; },
+  BEDROCK_REGION,
+  BEDROCK_RESOLVED_REGION,
+  BEDROCK_ACTIVATION_SOURCE,
+  BEDROCK_PROFILE_ARN,
+  BEDROCK_MODEL_ID,
+  BEDROCK_BEARER_TOKEN,
+  BEDROCK_TEST_HOST,
+  BEDROCK_TEST_PORT,
+  BEDROCK_TEST_PROTOCOL,
+  get BEDROCK_CREDENTIALS() { return BEDROCK_CREDENTIALS; },
+  set BEDROCK_CREDENTIALS(v) { BEDROCK_CREDENTIALS = v; },
+  BEDROCK_MODEL_MAP,
+  resolveBedrockModelId,
+  buildBedrockUrl,
 };

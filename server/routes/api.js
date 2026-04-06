@@ -8,6 +8,12 @@ const { tokenizeRequest } = require('../helpers');
 const { computeBlockDiff } = require('../system-prompt');
 
 function handleApiRoutes(clientReq, clientRes) {
+  if (clientReq.url === '/_api/config') {
+    clientRes.writeHead(200, { 'Content-Type': 'application/json' });
+    clientRes.end(JSON.stringify({ bedrockMode: !!config.IS_BEDROCK_MODE }));
+    return true;
+  }
+
   if (clientReq.url === '/_api/entries') {
     clientRes.writeHead(200, { 'Content-Type': 'application/json' });
     clientRes.end(JSON.stringify(store.entries.map(summarizeEntry)));

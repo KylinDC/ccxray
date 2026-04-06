@@ -32,6 +32,14 @@ if (portIdx !== -1) {
 }
 const hubMode = process.argv.includes('--hub-mode');
 if (hubMode) process.argv.splice(process.argv.indexOf('--hub-mode'), 1);
+
+// --bedrock flag: activate Bedrock mode regardless of env vars
+const bedrockFlagIdx = process.argv.indexOf('--bedrock');
+if (bedrockFlagIdx !== -1) {
+  config.IS_BEDROCK_MODE = true;
+  process.argv.splice(bedrockFlagIdx, 1);
+}
+
 const claudeMode = process.argv[2] === 'claude';
 const claudeArgs = claudeMode ? process.argv.slice(3) : [];
 
@@ -274,9 +282,19 @@ function tryListen(srv, port, maxAttempts) {
 // ── Spawn Claude Code with proxy env ──
 function spawnClaude(port, args) {
   const { spawn } = require('child_process');
+  // In Bedrock mode, strip AWS_* env vars from Claude's environment so it
+  // doesn't independently attempt Bedrock SDK usage — it should use the proxy.
+  let childEnv = { ...process.env, ANTHROPIC_BASE_URL: `http://localhost:${port}` };
+  if (config.IS_BEDROCK_MODE) {
+    for (const key of Object.keys(childEnv)) {
+      if (key.startsWith('AWS_') || key === 'CLAUDE_CODE_USE_BEDROCK') {
+        delete childEnv[key];
+      }
+    }
+  }
   const child = spawn('claude', args, {
     stdio: 'inherit',
-    env: { ...process.env, ANTHROPIC_BASE_URL: `http://localhost:${port}` },
+    env: childEnv,
   });
   child.on('error', (err) => {
     if (err.code === 'ENOENT') {
@@ -412,6 +430,25 @@ async function startClientMode(lock) {
 // ── Hub/Server startup ──
 async function startServer() {
   await config.storage.init();
+
+  // Bedrock mode: resolve credentials (or validate bearer token)
+  if (config.IS_BEDROCK_MODE) {
+    const activationSource = config.BEDROCK_ACTIVATION_SOURCE
+      || (process.argv.includes('--bedrock') ? '--bedrock flag' : 'unknown');
+    if (config.BEDROCK_BEARER_TOKEN) {
+      _origLog(`\x1b[36mBedrock mode: ${config.BEDROCK_RESOLVED_REGION} (bearer token auth, via ${activationSource})\x1b[0m`);
+    } else {
+      const { resolveCredentials } = require('./bedrock-credentials');
+      const creds = await resolveCredentials();
+      if (!creds) {
+        console.error('\x1b[31mBedrock mode requires auth. Set BEDROCK_BEARER_TOKEN, AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or configure ~/.aws/credentials\x1b[0m');
+        process.exit(1);
+      }
+      config.BEDROCK_CREDENTIALS = creds;
+      _origLog(`\x1b[36mBedrock mode: ${config.BEDROCK_RESOLVED_REGION} (SigV4 auth, via ${activationSource})\x1b[0m`);
+    }
+  }
+
   await fetchPricing();
   await restoreFromLogs();
   warmUpCosts();
