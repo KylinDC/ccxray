@@ -36,7 +36,16 @@ function forwardBedrockRequest(ctx) {
   const { id, ts, startTime, parsedBody, rawBody, clientReq, clientRes, reqSessionId } = ctx;
 
   const statsStripped = stripInjectedStats(parsedBody);
-  const bodyToSend = (ctx.bodyModified || statsStripped) ? Buffer.from(JSON.stringify(parsedBody)) : rawBody;
+
+  // Translate the Anthropic API body to Bedrock native format:
+  //   - add anthropic_version (Bedrock requires it in the body; Claude Code sends it as a header)
+  //   - strip `model` (encoded in the URL) and `stream` (indicated by the endpoint path)
+  const baseBody = parsedBody || JSON.parse(rawBody.toString());
+  const { model: _model, stream: _stream, ...bedrockFields } = baseBody;
+  const bodyToSend = Buffer.from(JSON.stringify({
+    anthropic_version: 'bedrock-2023-05-31',
+    ...bedrockFields,
+  }));
 
   // Resolve Bedrock model ID
   let bedrockModelId;
