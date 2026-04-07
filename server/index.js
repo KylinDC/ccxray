@@ -405,9 +405,15 @@ async function startClientMode(lock) {
 
   // Spawn claude pointing to hub
   const { spawn } = require('child_process');
+  let hubClientEnv = { ...process.env, ANTHROPIC_BASE_URL: `http://localhost:${lock.port}` };
+  if (config.IS_BEDROCK_MODE) {
+    for (const key of Object.keys(hubClientEnv)) {
+      if (key.startsWith('AWS_') || key === 'CLAUDE_CODE_USE_BEDROCK') delete hubClientEnv[key];
+    }
+  }
   const child = spawn('claude', claudeArgs, {
     stdio: 'inherit',
-    env: { ...process.env, ANTHROPIC_BASE_URL: `http://localhost:${lock.port}` },
+    env: hubClientEnv,
   });
   child.on('error', (err) => {
     if (err.code === 'ENOENT') {
@@ -435,13 +441,13 @@ async function startServer() {
   if (config.IS_BEDROCK_MODE) {
     const activationSource = config.BEDROCK_ACTIVATION_SOURCE
       || (process.argv.includes('--bedrock') ? '--bedrock flag' : 'unknown');
-    if (config.BEDROCK_BEARER_TOKEN) {
+    if (config.AWS_BEARER_TOKEN_BEDROCK) {
       _origLog(`\x1b[36mBedrock mode: ${config.BEDROCK_RESOLVED_REGION} (bearer token auth, via ${activationSource})\x1b[0m`);
     } else {
       const { resolveCredentials } = require('./bedrock-credentials');
       const creds = await resolveCredentials();
       if (!creds) {
-        console.error('\x1b[31mBedrock mode requires auth. Set BEDROCK_BEARER_TOKEN, AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or configure ~/.aws/credentials\x1b[0m');
+        console.error('\x1b[31mBedrock mode requires auth. Set AWS_BEARER_TOKEN_BEDROCK, AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or configure ~/.aws/credentials\x1b[0m');
         process.exit(1);
       }
       config.BEDROCK_CREDENTIALS = creds;

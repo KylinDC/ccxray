@@ -5,7 +5,7 @@ Claude Code users on AWS (enterprise customers, AWS employees, or teams with Bed
 ## What Changes
 
 - **Bedrock backend mode**: When `BEDROCK_REGION` is set, `CLAUDE_CODE_USE_BEDROCK=1` is detected, or `--bedrock` flag is passed, ccxray transparently translates incoming Anthropic Messages API requests to Bedrock Runtime API format and forwards to AWS instead of `api.anthropic.com`. If `CLAUDE_CODE_USE_BEDROCK` is already in the environment, no extra config is needed.
-- **Dual auth support**: SigV4 signing using AWS credentials from the default credential chain (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN`, instance metadata, profile), OR bearer token auth via `BEDROCK_BEARER_TOKEN` for IAM Identity Center / SSO setups. Bearer token takes precedence when both are present.
+- **Dual auth support**: SigV4 signing using AWS credentials from the default credential chain (`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_SESSION_TOKEN`, instance metadata, profile), OR bearer token auth via `AWS_BEARER_TOKEN_BEDROCK` for IAM Identity Center / SSO setups. Bearer token takes precedence when both are present.
 - **Binary EventStream ↔ SSE translation**: Bedrock streaming responses use a binary-framed EventStream format; ccxray decodes it and re-emits standard `text/event-stream` SSE to Claude Code, and vice versa.
 - **Model ID normalization**: Anthropic model IDs (e.g. `claude-opus-4`) are mapped to their Bedrock equivalents (e.g. `anthropic.claude-opus-4-...`) for routing, and normalized back for display in the dashboard.
 - **Cross-account inference profile support**: Optional `BEDROCK_PROFILE_ARN` env var allows routing through a Bedrock cross-region inference profile ARN.

@@ -18,7 +18,7 @@ const RESTORE_DAYS = parseInt(process.env.RESTORE_DAYS || '3', 10);
 const BEDROCK_REGION = process.env.BEDROCK_REGION || '';
 const BEDROCK_PROFILE_ARN = process.env.BEDROCK_PROFILE_ARN || '';
 const BEDROCK_MODEL_ID = process.env.BEDROCK_MODEL_ID || '';
-const BEDROCK_BEARER_TOKEN = process.env.BEDROCK_BEARER_TOKEN || '';
+const AWS_BEARER_TOKEN_BEDROCK = process.env.AWS_BEARER_TOKEN_BEDROCK || '';
 const _CLAUDE_CODE_USE_BEDROCK = process.env.CLAUDE_CODE_USE_BEDROCK || '';
 
 // IS_BEDROCK_MODE is true when any activation trigger is set.
@@ -178,7 +178,7 @@ module.exports = {
   BEDROCK_ACTIVATION_SOURCE,
   BEDROCK_PROFILE_ARN,
   BEDROCK_MODEL_ID,
-  BEDROCK_BEARER_TOKEN,
+  AWS_BEARER_TOKEN_BEDROCK,
   BEDROCK_TEST_HOST,
   BEDROCK_TEST_PORT,
   BEDROCK_TEST_PROTOCOL,

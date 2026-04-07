@@ -83,7 +83,7 @@ Headers are length-prefixed name-value pairs. The `:event-type` header contains 
 ### Decision 5: Auth method selection — bearer token vs SigV4
 
 **Choice**: Two mutually exclusive auth paths, bearer token taking precedence:
-- If `BEDROCK_BEARER_TOKEN` is set → attach `Authorization: Bearer {token}`; skip all SigV4 and credential resolution entirely.
+- If `AWS_BEARER_TOKEN_BEDROCK` is set → attach `Authorization: Bearer {token}`; skip all SigV4 and credential resolution entirely.
 - Otherwise → resolve AWS credentials and sign with SigV4.
 
 Credential resolution order (SigV4 path only):
@@ -91,7 +91,7 @@ Credential resolution order (SigV4 path only):
 2. AWS shared credentials file (`~/.aws/credentials`, profile from `AWS_PROFILE` or `default`)
 3. EC2/ECS instance metadata (IMDS v2, with 1s timeout)
 
-**Rationale**: Bearer tokens are used by IAM Identity Center (SSO) and some Bedrock gateway setups that vend short-lived tokens instead of AWS key pairs. Making this a first-class path avoids forcing SSO users through SigV4. Precedence order ensures users who set `BEDROCK_BEARER_TOKEN` don't get unexpected SigV4 failures if stale AWS env vars are also present.
+**Rationale**: Bearer tokens are used by IAM Identity Center (SSO) and some Bedrock gateway setups that vend short-lived tokens instead of AWS key pairs. Making this a first-class path avoids forcing SSO users through SigV4. Precedence order ensures users who set `AWS_BEARER_TOKEN_BEDROCK` don't get unexpected SigV4 failures if stale AWS env vars are also present.
 
 ### Decision 6: Bedrock mode activation triggers
 

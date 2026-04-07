@@ -49,6 +49,26 @@ function forwardBedrockRequest(ctx) {
     }
     clientRes.writeHead(400, { 'Content-Type': 'application/json' });
     clientRes.end(JSON.stringify({ error: 'bedrock_model_unknown', message: err.message }));
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    const errEvent = [{ type: 'error', error: 'bedrock_model_unknown', message: err.message }];
+    const resWritePromise = config.storage.write(id, '_res.json', JSON.stringify(errEvent))
+      .catch(e => console.error('Write res.json failed:', e.message));
+    const entry = {
+      id, ts, sessionId: reqSessionId, method: clientReq.method, url: clientReq.url,
+      req: parsedBody, res: errEvent, elapsed, status: 400, isSSE: false,
+      tokens: helpers.tokenizeRequest(parsedBody),
+      usage: null, cost: null, maxContext: null,
+      cwd: store.sessionMeta[reqSessionId]?.cwd || null,
+      receivedAt: startTime, model: parsedBody?.model || null,
+      msgCount: parsedBody?.messages?.length || 0, toolCount: parsedBody?.tools?.length || 0,
+      stopReason: 'error', title: null,
+      sysHash: ctx.sysHash || null, toolsHash: ctx.toolsHash || null,
+    };
+    entry._writePromise = Promise.all([ctx.reqWritePromise, resWritePromise].filter(Boolean));
+    store.entries.push(entry);
+    store.trimEntries();
+    broadcast(entry);
+    console.error(`\x1b[31m❌ BEDROCK MODEL UNKNOWN: ${err.message}\x1b[0m`);
     return;
   }
 
@@ -67,8 +87,8 @@ function forwardBedrockRequest(ctx) {
   fwdHeaders['host'] = url.hostname;
 
   // Auth: bearer token takes precedence over SigV4
-  if (config.BEDROCK_BEARER_TOKEN) {
-    fwdHeaders['authorization'] = `Bearer ${config.BEDROCK_BEARER_TOKEN}`;
+  if (config.AWS_BEARER_TOKEN_BEDROCK) {
+    fwdHeaders['authorization'] = `Bearer ${config.AWS_BEARER_TOKEN_BEDROCK}`;
   } else {
     const creds = config.BEDROCK_CREDENTIALS;
     const signed = sigv4.sign('POST', bedrockUrl, fwdHeaders, bodyToSend, creds, config.BEDROCK_RESOLVED_REGION, 'bedrock');
@@ -109,6 +129,26 @@ function forwardBedrockRequest(ctx) {
       clientRes.writeHead(502, { 'Content-Type': 'application/json' });
     }
     clientRes.end(JSON.stringify({ error: 'proxy_error', message: err.message }));
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    const errEvent = [{ type: 'error', error: 'proxy_error', message: err.message }];
+    const resWritePromise = config.storage.write(id, '_res.json', JSON.stringify(errEvent))
+      .catch(e => console.error('Write res.json failed:', e.message));
+    const entry = {
+      id, ts, sessionId: reqSessionId, method: clientReq.method, url: clientReq.url,
+      req: parsedBody, res: errEvent, elapsed, status: 502, isSSE: false,
+      tokens: helpers.tokenizeRequest(parsedBody),
+      usage: null, cost: null, maxContext: null,
+      cwd: store.sessionMeta[reqSessionId]?.cwd || null,
+      receivedAt: startTime, model: parsedBody?.model || null,
+      msgCount: parsedBody?.messages?.length || 0, toolCount: parsedBody?.tools?.length || 0,
+      stopReason: 'error', title: null,
+      sysHash: ctx.sysHash || null, toolsHash: ctx.toolsHash || null,
+    };
+    entry._writePromise = Promise.all([ctx.reqWritePromise, resWritePromise].filter(Boolean));
+    store.entries.push(entry);
+    store.trimEntries();
+    broadcast(entry);
   });
 
   proxyReq.end(bodyToSend);
@@ -166,7 +206,32 @@ function handleBedrockSSEResponse(ctx, proxyRes, clientRes, bedrockModelId) {
   });
 
   proxyRes.on('end', () => {
-    if (streamErrored) return;
+    if (streamErrored) {
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      const errEvent = [{ type: 'error', error: 'modelStreamErrorException' }];
+      const resWritePromise = config.storage.write(id, '_res.json', JSON.stringify(errEvent))
+        .catch(e => console.error('Write res.json failed:', e.message));
+      if (reqSessionId) {
+        store.activeRequests[reqSessionId] = Math.max(0, (store.activeRequests[reqSessionId] || 1) - 1);
+        broadcastSessionStatus(reqSessionId);
+      }
+      const entry = {
+        id, ts: ctx.ts, sessionId: reqSessionId, method: ctx.clientReq.method, url: ctx.clientReq.url,
+        req: parsedBody, res: errEvent, elapsed, status: 500, isSSE: true,
+        tokens: helpers.tokenizeRequest(parsedBody),
+        usage: null, cost: null, maxContext: null,
+        cwd: store.sessionMeta[reqSessionId]?.cwd || null,
+        receivedAt: startTime, model: parsedBody?.model || null,
+        msgCount: parsedBody?.messages?.length || 0, toolCount: parsedBody?.tools?.length || 0,
+        stopReason: 'error', title: null,
+        sysHash: ctx.sysHash || null, toolsHash: ctx.toolsHash || null,
+      };
+      entry._writePromise = Promise.all([ctx.reqWritePromise, resWritePromise].filter(Boolean));
+      store.entries.push(entry);
+      store.trimEntries();
+      broadcast(entry);
+      return;
+    }
 
     if (ctx.skipEntry) {
       for (const held of heldEventStrs) clientRes.write(held);

@@ -213,11 +213,11 @@ function buildStreamingResponse() {
 // ── Section 13: Startup tests ────────────────────────────────────────
 
 describe('Bedrock: startup and auth', () => {
-  it('13.1 starts with BEDROCK_BEARER_TOKEN and responds to health', async () => {
+  it('13.1 starts with AWS_BEARER_TOKEN_BEDROCK and responds to health', async () => {
     const port = await findFreePort();
     const child = spawnServer(['--port', String(port)], {
       BEDROCK_REGION: 'us-east-1',
-      BEDROCK_BEARER_TOKEN: 'test-bearer-token',
+      AWS_BEARER_TOKEN_BEDROCK: 'test-bearer-token',
       BEDROCK_TEST_HOST: 'localhost',
       BEDROCK_TEST_PORT: '1', // invalid port, but startup should not connect to Bedrock
     });
@@ -272,7 +272,7 @@ describe('Bedrock: startup and auth', () => {
     const child = spawnServer(['--port', String(port)], {
       CLAUDE_CODE_USE_BEDROCK: '1',
       AWS_REGION: 'ap-northeast-1',
-      BEDROCK_BEARER_TOKEN: 'test-token',
+      AWS_BEARER_TOKEN_BEDROCK: 'test-token',
     });
     try {
       await waitForPort(port, 10000);
@@ -293,7 +293,7 @@ describe('Bedrock: startup and auth', () => {
     const port = await findFreePort();
     const child = spawnServer(['--port', String(port)], {
       BEDROCK_REGION: 'us-east-1',
-      BEDROCK_BEARER_TOKEN: 'test-token',
+      AWS_BEARER_TOKEN_BEDROCK: 'test-token',
     });
     try {
       await waitForPort(port, 10000);
@@ -355,7 +355,7 @@ describe('Bedrock: E2E proxy with mock Bedrock server', () => {
     proxyPort = await findFreePort();
     proxyChild = spawnServer(['--port', String(proxyPort)], {
       BEDROCK_REGION: 'us-east-1',
-      BEDROCK_BEARER_TOKEN: 'test-bearer-token',
+      AWS_BEARER_TOKEN_BEDROCK: 'test-bearer-token',
       BEDROCK_TEST_HOST: 'localhost',
       BEDROCK_TEST_PORT: String(mockPort),
       BEDROCK_TEST_PROTOCOL: 'http',
@@ -422,7 +422,7 @@ describe('Bedrock: E2E proxy with mock Bedrock server', () => {
     const mixedPort = await findFreePort();
     const mixedChild = spawnServer(['--port', String(mixedPort)], {
       BEDROCK_REGION: 'us-east-1',
-      BEDROCK_BEARER_TOKEN: 'my-bearer-wins',
+      AWS_BEARER_TOKEN_BEDROCK: 'my-bearer-wins',
       AWS_ACCESS_KEY_ID: 'AKIAIOSFODNN7EXAMPLE',
       AWS_SECRET_ACCESS_KEY: 'wJalrXUtnFEMI/K7MDENG+bPxRfiCYEXAMPLEKEY',
       BEDROCK_TEST_HOST: 'localhost',
@@ -499,7 +499,7 @@ describe('Bedrock: E2E proxy with mock Bedrock server', () => {
     const testArn = 'arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-5-sonnet-20241022-v2:0';
     const arnChild = spawnServer(['--port', String(arnPort)], {
       BEDROCK_REGION: 'us-east-1',
-      BEDROCK_BEARER_TOKEN: 'test-token',
+      AWS_BEARER_TOKEN_BEDROCK: 'test-token',
       BEDROCK_PROFILE_ARN: testArn,
       BEDROCK_TEST_HOST: 'localhost',
       BEDROCK_TEST_PORT: String(mockPort),

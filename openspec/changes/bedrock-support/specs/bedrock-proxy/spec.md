@@ -20,33 +20,33 @@ The system SHALL activate Bedrock backend mode when ANY of the following conditi
 - **THEN** ccxray operates normally, forwarding to `api.anthropic.com`
 
 #### Scenario: Missing auth in Bedrock mode
-- **WHEN** Bedrock mode is activated but neither AWS credentials nor `BEDROCK_BEARER_TOKEN` are resolvable
-- **THEN** ccxray exits at startup with error "Bedrock mode requires auth. Set BEDROCK_BEARER_TOKEN, AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or configure ~/.aws/credentials"
+- **WHEN** Bedrock mode is activated but neither AWS credentials nor `AWS_BEARER_TOKEN_BEDROCK` are resolvable
+- **THEN** ccxray exits at startup with error "Bedrock mode requires auth. Set AWS_BEARER_TOKEN_BEDROCK, AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or configure ~/.aws/credentials"
 
 ### Requirement: Bearer token authentication
-The system SHALL support AWS Bedrock bearer token authentication via the `BEDROCK_BEARER_TOKEN` environment variable. When `BEDROCK_BEARER_TOKEN` is set, the system SHALL attach `Authorization: Bearer {token}` to every forwarded Bedrock request and SHALL skip SigV4 signing entirely. Bearer token auth takes precedence over SigV4 when both are present.
+The system SHALL support AWS Bedrock bearer token authentication via the `AWS_BEARER_TOKEN_BEDROCK` environment variable. When `AWS_BEARER_TOKEN_BEDROCK` is set, the system SHALL attach `Authorization: Bearer {token}` to every forwarded Bedrock request and SHALL skip SigV4 signing entirely. Bearer token auth takes precedence over SigV4 when both are present.
 
 #### Scenario: Bearer token used when set
-- **WHEN** `BEDROCK_BEARER_TOKEN=eyJ...` is set
+- **WHEN** `AWS_BEARER_TOKEN_BEDROCK=eyJ...` is set
 - **THEN** every forwarded Bedrock request contains `Authorization: Bearer eyJ...` and no SigV4 Authorization header or `X-Amz-*` headers are added
 
 #### Scenario: Bearer token takes precedence over SigV4 credentials
-- **WHEN** both `BEDROCK_BEARER_TOKEN` and `AWS_ACCESS_KEY_ID` are set
-- **THEN** the forwarded request uses Bearer auth (not SigV4), and a debug log notes "Using bearer token auth (BEDROCK_BEARER_TOKEN)"
+- **WHEN** both `AWS_BEARER_TOKEN_BEDROCK` and `AWS_ACCESS_KEY_ID` are set
+- **THEN** the forwarded request uses Bearer auth (not SigV4), and a debug log notes "Using bearer token auth (AWS_BEARER_TOKEN_BEDROCK)"
 
 #### Scenario: No credential check when bearer token is set
-- **WHEN** `BEDROCK_BEARER_TOKEN` is set and AWS credentials are not present
+- **WHEN** `AWS_BEARER_TOKEN_BEDROCK` is set and AWS credentials are not present
 - **THEN** ccxray starts successfully without attempting credential resolution
 
 ### Requirement: AWS SigV4 request signing
-The system SHALL sign every request forwarded to Bedrock using AWS Signature Version 4 with service `bedrock` and the configured region when `BEDROCK_BEARER_TOKEN` is not set. Signing SHALL use credentials resolved from the environment in this order: (1) `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` + optional `AWS_SESSION_TOKEN`, (2) AWS shared credentials file at `~/.aws/credentials` using profile `AWS_PROFILE` or `default`, (3) EC2/ECS instance metadata (IMDSv2, 1s timeout).
+The system SHALL sign every request forwarded to Bedrock using AWS Signature Version 4 with service `bedrock` and the configured region when `AWS_BEARER_TOKEN_BEDROCK` is not set. Signing SHALL use credentials resolved from the environment in this order: (1) `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` + optional `AWS_SESSION_TOKEN`, (2) AWS shared credentials file at `~/.aws/credentials` using profile `AWS_PROFILE` or `default`, (3) EC2/ECS instance metadata (IMDSv2, 1s timeout).
 
 #### Scenario: Request signed with explicit env credentials
-- **WHEN** `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are set and `BEDROCK_BEARER_TOKEN` is not set
+- **WHEN** `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are set and `AWS_BEARER_TOKEN_BEDROCK` is not set
 - **THEN** the forwarded request contains a valid `Authorization: AWS4-HMAC-SHA256 ...` header with the correct credential scope and HMAC signature
 
 #### Scenario: Request signed with profile credentials
-- **WHEN** `AWS_ACCESS_KEY_ID` is not set, `BEDROCK_BEARER_TOKEN` is not set, but `~/.aws/credentials` contains a `[default]` profile with valid keys
+- **WHEN** `AWS_ACCESS_KEY_ID` is not set, `AWS_BEARER_TOKEN_BEDROCK` is not set, but `~/.aws/credentials` contains a `[default]` profile with valid keys
 - **THEN** the forwarded request is signed using those profile credentials
 
 #### Scenario: Session token included when present
@@ -114,7 +114,7 @@ The system SHALL translate outgoing request headers for Bedrock compatibility. T
 - **THEN** the request contains `Accept: application/vnd.amazon.eventstream`
 
 #### Scenario: Authorization header with bearer token
-- **WHEN** `BEDROCK_BEARER_TOKEN` is set
+- **WHEN** `AWS_BEARER_TOKEN_BEDROCK` is set
 - **THEN** the forwarded request has `Authorization: Bearer {token}` and no `X-Amz-Date` or `X-Amz-Security-Token` headers
 
 ### Requirement: Dashboard and logging compatibility in Bedrock mode

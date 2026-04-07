@@ -1,10 +1,10 @@
 ## 1. Configuration and Credential Resolution
 
-- [x] 1.1 Add `BEDROCK_REGION`, `BEDROCK_PROFILE_ARN`, `BEDROCK_MODEL_ID`, `BEDROCK_BEARER_TOKEN` env vars to `server/config.js`; set `IS_BEDROCK_MODE = !!(BEDROCK_REGION || CLAUDE_CODE_USE_BEDROCK === '1' || CLAUDE_CODE_USE_BEDROCK === 'true' || bedrockFlag)`
+- [x] 1.1 Add `BEDROCK_REGION`, `BEDROCK_PROFILE_ARN`, `BEDROCK_MODEL_ID`, `AWS_BEARER_TOKEN_BEDROCK` env vars to `server/config.js`; set `IS_BEDROCK_MODE = !!(BEDROCK_REGION || CLAUDE_CODE_USE_BEDROCK === '1' || CLAUDE_CODE_USE_BEDROCK === 'true' || bedrockFlag)`
 - [x] 1.2 Add region resolution logic in `server/config.js`: `BEDROCK_REGION` → `AWS_REGION` → `AWS_DEFAULT_REGION` → `'us-east-1'`; export resolved `BEDROCK_RESOLVED_REGION`
 - [x] 1.3 Add Anthropic→Bedrock model ID mapping table in `server/config.js` (Claude 3 Haiku/Sonnet/Opus, 3.5 Haiku/Sonnet v1+v2, 3.7 Sonnet, Opus 4, Sonnet 4, Haiku 4)
-- [x] 1.4 Implement credential resolver in `server/bedrock-credentials.js`: env vars → `~/.aws/credentials` file → IMDSv2 (1s timeout); resolver is skipped entirely when `BEDROCK_BEARER_TOKEN` is set
-- [x] 1.5 In `server/index.js` startup, when `IS_BEDROCK_MODE`: if `BEDROCK_BEARER_TOKEN` is set log "Bedrock mode: {region} (bearer token auth)"; else resolve credentials and exit with error if none found; log activation source (BEDROCK_REGION / CLAUDE_CODE_USE_BEDROCK / --bedrock flag)
+- [x] 1.4 Implement credential resolver in `server/bedrock-credentials.js`: env vars → `~/.aws/credentials` file → IMDSv2 (1s timeout); resolver is skipped entirely when `AWS_BEARER_TOKEN_BEDROCK` is set
+- [x] 1.5 In `server/index.js` startup, when `IS_BEDROCK_MODE`: if `AWS_BEARER_TOKEN_BEDROCK` is set log "Bedrock mode: {region} (bearer token auth)"; else resolve credentials and exit with error if none found; log activation source (BEDROCK_REGION / CLAUDE_CODE_USE_BEDROCK / --bedrock flag)
 
 ## 2. SigV4 Request Signing
 
@@ -18,7 +18,7 @@
 - [x] 3.1 Add `resolveBedrockModelId(anthropicModelId)` helper in `server/config.js` using the mapping table (longest-prefix match); throw on unknown if no `BEDROCK_MODEL_ID` override
 - [x] 3.2 Add `buildBedrockUrl(region, modelId, profileArn)` helper that constructs the correct Bedrock endpoint URL
 - [x] 3.3 In `forwardBedrockRequest()` (new function in `server/forward.js`): strip incoming `x-api-key`, `anthropic-version`, `authorization` headers; set `Content-Type: application/json`, `Accept: application/vnd.amazon.eventstream`
-- [x] 3.4 Auth header selection: if `BEDROCK_BEARER_TOKEN` is set, add `Authorization: Bearer {token}`; otherwise call `sigv4.sign()` and add the resulting `Authorization`, `X-Amz-Date`, and optional `X-Amz-Security-Token` headers
+- [x] 3.4 Auth header selection: if `AWS_BEARER_TOKEN_BEDROCK` is set, add `Authorization: Bearer {token}`; otherwise call `sigv4.sign()` and add the resulting `Authorization`, `X-Amz-Date`, and optional `X-Amz-Security-Token` headers
 - [x] 3.5 Handle `resolveBedrockModelId` error: respond HTTP 400 with `bedrock_model_unknown` JSON error
 
 ## 4. Binary EventStream Decoder
@@ -99,11 +99,11 @@
 - [x] 12.3 Resolver falls back to `~/.aws/credentials` `[default]` profile when env vars absent (use a temp file)
 - [x] 12.4 Resolver reads named profile when `AWS_PROFILE` is set (use a temp credentials file with two profiles)
 - [x] 12.5 Resolver returns `null` when no env vars, no credentials file, and IMDS times out (mock IMDS with a port that drops connections)
-- [x] 12.6 Resolver is skipped (returns `null` without error) when `BEDROCK_BEARER_TOKEN` is set (caller decides to skip)
+- [x] 12.6 Resolver is skipped (returns `null` without error) when `AWS_BEARER_TOKEN_BEDROCK` is set (caller decides to skip)
 
 ## 13. Integration Tests: `test/bedrock.test.js` — startup and auth
 
-- [x] 13.1 Bedrock mode startup with `BEDROCK_BEARER_TOKEN`: ccxray starts, health endpoint responds, startup log contains "bearer token auth"
+- [x] 13.1 Bedrock mode startup with `AWS_BEARER_TOKEN_BEDROCK`: ccxray starts, health endpoint responds, startup log contains "bearer token auth"
 - [x] 13.2 Bedrock mode startup with `AWS_ACCESS_KEY_ID`+`AWS_SECRET_ACCESS_KEY`: ccxray starts successfully
 - [x] 13.3 Bedrock mode startup with no credentials and no bearer token: ccxray exits with code 1 and stderr contains actionable error message
 - [x] 13.4 `CLAUDE_CODE_USE_BEDROCK=1` without `BEDROCK_REGION` but with `AWS_REGION=ap-northeast-1`: startup log contains "ap-northeast-1" and "auto-detected via CLAUDE_CODE_USE_BEDROCK"
@@ -111,12 +111,12 @@
 
 ## 14. Integration Tests: `test/bedrock.test.js` — end-to-end proxy with mock Bedrock
 
-Each test in this group: spawn ccxray with `BEDROCK_REGION=us-east-1` + `BEDROCK_BEARER_TOKEN=test-token`, start a mock HTTP server that simulates `bedrock-runtime.us-east-1.amazonaws.com`, point ccxray at it via `BEDROCK_TEST_HOST`/`BEDROCK_TEST_PORT` env vars (similar pattern to `ANTHROPIC_TEST_HOST`).
+Each test in this group: spawn ccxray with `BEDROCK_REGION=us-east-1` + `AWS_BEARER_TOKEN_BEDROCK=test-token`, start a mock HTTP server that simulates `bedrock-runtime.us-east-1.amazonaws.com`, point ccxray at it via `BEDROCK_TEST_HOST`/`BEDROCK_TEST_PORT` env vars (similar pattern to `ANTHROPIC_TEST_HOST`).
 
 - [x] 14.1 **Header translation**: mock Bedrock server records incoming headers; verify `x-api-key` and `anthropic-version` are absent, `Authorization: Bearer test-token` is present, `Accept: application/vnd.amazon.eventstream` is present
 - [x] 14.2 **URL rewrite**: verify request arrived at `/model/anthropic.claude-3-5-sonnet-20241022-v2:0/invoke-with-response-stream` (not `/v1/messages`)
 - [x] 14.3 **SigV4 auth**: spawn with `AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE` + `AWS_SECRET_ACCESS_KEY=test`; verify `Authorization` header starts with `AWS4-HMAC-SHA256 Credential=AKIAIOSFODNN7EXAMPLE/`
-- [x] 14.4 **Bearer wins over SigV4**: both `BEDROCK_BEARER_TOKEN` and AWS key env vars set; verify `Authorization: Bearer ...` (not SigV4)
+- [x] 14.4 **Bearer wins over SigV4**: both `AWS_BEARER_TOKEN_BEDROCK` and AWS key env vars set; verify `Authorization: Bearer ...` (not SigV4)
 - [x] 14.5 **Streaming response decoded**: mock returns a binary EventStream with 3 Anthropic SSE event frames; verify client receives correct `text/event-stream` with all 3 events in order
 - [x] 14.6 **Frame boundary handling**: mock sends binary EventStream in two TCP writes split mid-frame; verify client still receives all events correctly
 - [x] 14.7 **Dashboard entry created**: after a complete Bedrock streaming round-trip, verify `/_api/entries` returns one entry with correct `model`, `usage.input_tokens`, and `usage.output_tokens`
