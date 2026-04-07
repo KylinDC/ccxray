@@ -291,6 +291,12 @@ function spawnClaude(port, args) {
         delete childEnv[key];
       }
     }
+    // Bedrock users typically have no ANTHROPIC_API_KEY. Without it, Claude Code
+    // refuses to start ("Not logged in"). Set a placeholder — ccxray strips the
+    // x-api-key header before forwarding to Bedrock, so it never reaches AWS.
+    if (!childEnv.ANTHROPIC_API_KEY) {
+      childEnv.ANTHROPIC_API_KEY = 'bedrock-via-ccxray';
+    }
   }
   const child = spawn('claude', args, {
     stdio: 'inherit',
@@ -409,6 +415,9 @@ async function startClientMode(lock) {
   if (config.IS_BEDROCK_MODE) {
     for (const key of Object.keys(hubClientEnv)) {
       if (key.startsWith('AWS_') || key === 'CLAUDE_CODE_USE_BEDROCK') delete hubClientEnv[key];
+    }
+    if (!hubClientEnv.ANTHROPIC_API_KEY) {
+      hubClientEnv.ANTHROPIC_API_KEY = 'bedrock-via-ccxray';
     }
   }
   const child = spawn('claude', claudeArgs, {
