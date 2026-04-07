@@ -25,11 +25,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kylindc/ccxray.git"
+    "url": "git+https://github.com/KylinDC/ccxray.git"
   },
-  "homepage": "https://github.com/kylindc/ccxray",
+  "homepage": "https://github.com/KylinDC/ccxray",
   "bugs": {
-    "url": "https://github.com/kylindc/ccxray/issues"
+    "url": "https://github.com/KylinDC/ccxray/issues"
   },
   "type": "commonjs",
   "engines": {
