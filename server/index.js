@@ -129,9 +129,18 @@ const server = http.createServer((clientReq, clientRes) => {
     let parsedBody = null;
     try { parsedBody = JSON.parse(rawBody.toString()); } catch {}
 
-    // Quota-check probes: forward to Anthropic (rate limit headers still captured)
-    // but skip all logging, session tracking, and entry creation
+    // Quota-check probes: forward to Anthropic for rate-limit headers, or return
+    // a synthetic success in Bedrock mode (Bedrock has no Anthropic-style quota).
     if (parsedBody && store.isQuotaCheck(parsedBody)) {
+      if (config.IS_BEDROCK_MODE) {
+        clientRes.writeHead(200, { 'Content-Type': 'application/json' });
+        clientRes.end(JSON.stringify({
+          id: 'msg_bedrock_quota', type: 'message', role: 'assistant',
+          content: [{ type: 'text', text: '' }], model: 'bedrock',
+          stop_reason: 'end_turn', usage: { input_tokens: 1, output_tokens: 0 },
+        }));
+        return;
+      }
       const fwdHeaders = { ...clientReq.headers };
       delete fwdHeaders['host'];
       delete fwdHeaders['connection'];

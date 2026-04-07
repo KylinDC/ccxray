@@ -242,7 +242,9 @@ function extractUsage(resData) {
   if (!Array.isArray(resData)) return null;
   const msgStart = resData.find(e => e.type === 'message_start');
   const msgDelta = resData.find(e => e.type === 'message_delta');
-  const u = msgStart?.message?.usage || {};
+  // Bedrock puts usage inside message.usage; standard Anthropic also does this.
+  // Fallback to root-level usage field for edge cases.
+  const u = msgStart?.message?.usage || msgStart?.usage || {};
   return {
     input_tokens: u.input_tokens || 0,
     output_tokens: msgDelta?.usage?.output_tokens || u.output_tokens || 0,
