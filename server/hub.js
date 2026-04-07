@@ -152,14 +152,14 @@ function checkVersionCompat(hubVersion) {
 
 // ── Fork detached hub process ───────────────────────────────────────
 
-function forkHub(port) {
+function forkHub(port, extraArgs = []) {
   const { spawn } = require('child_process');
   ensureHubDir();
   truncateHubLog();
 
   const fd = fs.openSync(HUB_LOG_PATH, 'a');
   const hubScript = path.resolve(__dirname, 'index.js');
-  const args = ['--port', String(port), '--hub-mode'];
+  const args = ['--port', String(port), '--hub-mode', ...extraArgs];
 
   const child = spawn(process.execPath, [hubScript, ...args], {
     detached: true,
@@ -361,7 +361,7 @@ function handleHubRoutes(clientReq, clientRes) {
 
 // ── Hub pid monitoring (client-side recovery) ───────────────────────
 
-function startHubMonitor(hubPid, hubPort, onRecovery) {
+function startHubMonitor(hubPid, hubPort, onRecovery, extraArgs = []) {
   const interval = setInterval(async () => {
     if (isPidAlive(hubPid)) return;
 
@@ -370,7 +370,7 @@ function startHubMonitor(hubPid, hubPort, onRecovery) {
     deleteHubLock();
 
     try {
-      forkHub(hubPort);
+      forkHub(hubPort, extraArgs);
       const lock = await waitForHubReady();
       if (lock.port !== hubPort) {
         console.error(`\x1b[31mHub recovered on port ${lock.port} but Claude is using port ${hubPort}. Cannot recover.\x1b[0m`);
@@ -379,7 +379,7 @@ function startHubMonitor(hubPid, hubPort, onRecovery) {
       }
       console.error(`\x1b[32mHub recovered (pid ${lock.pid}, port ${lock.port})\x1b[0m`);
       if (onRecovery) onRecovery(lock);
-      startHubMonitor(lock.pid, lock.port, onRecovery);
+      startHubMonitor(lock.pid, lock.port, onRecovery, extraArgs);
     } catch (err) {
       console.error(`\x1b[31mHub recovery failed: ${err.message}\x1b[0m`);
     }

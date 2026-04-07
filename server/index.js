@@ -413,10 +413,11 @@ async function startClientMode(lock) {
   }
 
   // Monitor hub health and auto-recover
+  const monitorExtraArgs = (config.IS_BEDROCK_MODE && process.argv.includes('--bedrock')) ? ['--bedrock'] : [];
   hub.startHubMonitor(lock.pid, lock.port, (newLock) => {
     // Re-register with new hub
     hub.registerClient(newLock.port, process.pid, process.cwd()).catch(() => {});
-  });
+  }, monitorExtraArgs);
 
   // Spawn claude pointing to hub
   const { spawn } = require('child_process');
@@ -549,8 +550,10 @@ async function startServer() {
     return;
   }
 
-  // No hub found: fork a hub, then connect as client
-  hub.forkHub(config.PORT);
+  // No hub found: fork a hub, then connect as client.
+  // Pass --bedrock if active via CLI flag (env-var activation already in process.env).
+  const hubExtraArgs = (config.IS_BEDROCK_MODE && process.argv.includes('--bedrock')) ? ['--bedrock'] : [];
+  hub.forkHub(config.PORT, hubExtraArgs);
   try {
     const lock = await hub.waitForHubReady();
     await startClientMode(lock);

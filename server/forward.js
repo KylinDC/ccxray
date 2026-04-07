@@ -173,6 +173,9 @@ function handleBedrockSSEResponse(ctx, proxyRes, clientRes, bedrockModelId) {
   let eventSeqIdx = 0;
   let streamErrored = false;
 
+  // Suppress write-after-end errors if Claude Code closes the connection early
+  clientRes.on('error', () => {});
+
   proxyRes.on('error', (err) => {
     console.error(`\x1b[31m❌ BEDROCK UPSTREAM STREAM ERROR: ${err.message}\x1b[0m`);
     if (reqSessionId) {
@@ -207,7 +210,7 @@ function handleBedrockSSEResponse(ctx, proxyRes, clientRes, bedrockModelId) {
 
       if (evt.type === 'message_delta' || evt.type === 'message_stop') {
         heldEventStrs.push(sseStr);
-      } else {
+      } else if (!clientRes.writableEnded) {
         clientRes.write(sseStr);
       }
       decodedEvents.push(evt);
@@ -243,7 +246,7 @@ function handleBedrockSSEResponse(ctx, proxyRes, clientRes, bedrockModelId) {
     }
 
     if (ctx.skipEntry) {
-      for (const held of heldEventStrs) clientRes.write(held);
+      for (const held of heldEventStrs) { if (!clientRes.writableEnded) clientRes.write(held); }
       if (!clientRes.writableEnded) clientRes.end();
       return;
     }
@@ -320,7 +323,7 @@ function handleBedrockSSEResponse(ctx, proxyRes, clientRes, bedrockModelId) {
       }
     }
 
-    for (const held of heldEventStrs) clientRes.write(held);
+    for (const held of heldEventStrs) { if (!clientRes.writableEnded) clientRes.write(held); }
     if (!clientRes.writableEnded) clientRes.end();
 
     if (reqSessionId) {

@@ -27,20 +27,22 @@ function summarizeEntry(entry) {
   };
 }
 
+function safeWrite(res, data) {
+  if (!res.writableEnded) {
+    try { res.write(data); } catch {}
+  }
+}
+
 function broadcast(entry) {
   const data = JSON.stringify(summarizeEntry(entry));
-  for (const res of store.sseClients) {
-    res.write(`data: ${data}\n\n`);
-  }
+  for (const res of store.sseClients) safeWrite(res, `data: ${data}\n\n`);
 }
 
 function broadcastSessionStatus(sessionId) {
   const active = (store.activeRequests[sessionId] || 0) > 0;
   const lastSeenAt = store.sessionMeta[sessionId]?.lastSeenAt || null;
   const data = JSON.stringify({ _type: 'session_status', sessionId, active, lastSeenAt });
-  for (const res of store.sseClients) {
-    res.write(`data: ${data}\n\n`);
-  }
+  for (const res of store.sseClients) safeWrite(res, `data: ${data}\n\n`);
 }
 
 function broadcastPendingRequest(requestId, parsedBody, sessionId) {
@@ -48,17 +50,17 @@ function broadcastPendingRequest(requestId, parsedBody, sessionId) {
     _type: 'pending_request', requestId, sessionId,
     body: parsedBody,
   });
-  for (const res of store.sseClients) res.write(`data: ${data}\n\n`);
+  for (const res of store.sseClients) safeWrite(res, `data: ${data}\n\n`);
 }
 
 function broadcastInterceptToggle(sessionId, enabled) {
   const data = JSON.stringify({ _type: 'intercept_toggled', sessionId, enabled });
-  for (const res of store.sseClients) res.write(`data: ${data}\n\n`);
+  for (const res of store.sseClients) safeWrite(res, `data: ${data}\n\n`);
 }
 
 function broadcastInterceptRemoved(requestId) {
   const data = JSON.stringify({ _type: 'intercept_removed', requestId });
-  for (const res of store.sseClients) res.write(`data: ${data}\n\n`);
+  for (const res of store.sseClients) safeWrite(res, `data: ${data}\n\n`);
 }
 
 module.exports = {
